@@ -606,7 +606,6 @@ class MpiCommunicatorBase(communicator_base.CommunicatorBase):
 
     def bcast_data(self, model):
         for _, param in sorted(model.namedparams()):
-            print("param.data", param.data)
             if param.data is not None:
                 buf = _memory_utility.array_to_buffer_object(param.data)
                 self.mpi_comm.Bcast(buf)
