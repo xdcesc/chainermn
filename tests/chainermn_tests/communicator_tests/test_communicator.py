@@ -41,7 +41,7 @@ class ExampleModel(chainer.Chain):
             c=chainer.links.Linear(4, 5, initialW=initialW,
                                    initial_bias=initial_bias),
             dummy=chainer.links.Linear(None, 5, initialW=initialW,
-                                   initial_bias=initial_bias),
+                                       initial_bias=initial_bias),
         )
 
 
