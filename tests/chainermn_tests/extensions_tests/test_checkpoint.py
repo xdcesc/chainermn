@@ -33,7 +33,7 @@ class MLP(chainer.Chain):
 class TestCheckpoint(unittest.TestCase):
 
     def setUp(self):
-        self.communicator = chainermn.create_communicator('naive')
+        #self.communicator = chainermn.create_communicator('naive')
 
     def test_stats(self):
         stats = _CheckpointStats()
@@ -48,15 +48,16 @@ class TestCheckpoint(unittest.TestCase):
         assert isinstance(stats.report(), str)
 
     def test_filename_converters(self):
+        communicator = chainermn.create_communicator('naive')
         checkpointer = create_multi_node_checkpointer(name='hoge',
-                                                      comm=self.communicator,
+                                                      comm=communicator,
                                                       cp_interval=23,
                                                       gc_interval=32)
         nums = [np.random.randint(4096) for _ in range(234)]
         filenames = checkpointer._filenames(nums)
         nums2 = []
         for n, r, i in checkpointer._parse_filenames(filenames):
-            assert self.communicator.rank == r
+            assert communicator.rank == r
             assert 'hoge' == n
             nums2.append(i)
 
@@ -70,7 +71,9 @@ class TestCheckpoint(unittest.TestCase):
         batchsize = 100
         n_units = 100
 
-        comm = self.communicator
+        communicator = chainermn.create_communicator('naive')
+
+        comm = communicator
         model = L.Classifier(MLP(n_units, 10))
 
         optimizer = chainermn.create_multi_node_optimizer(
@@ -102,9 +105,10 @@ class TestCheckpoint(unittest.TestCase):
 
         path = tempfile.mkdtemp(dir='/tmp', prefix=__name__ + "-tmp-")
         if display_log:
-            print("temporary file:", path)
+            print("temporary file:", path, flush=True)
+        communicator = chainermn.create_communicator('naive')
         checkpointer = create_multi_node_checkpointer(name=__name__,
-                                                      comm=self.communicator,
+                                                      comm=communicator,
                                                       path=path)
         checkpointer.maybe_load(updater, optimizer)
 
@@ -125,20 +129,21 @@ class TestCheckpoint(unittest.TestCase):
             if train_iter.is_new_epoch:
                 if display_log:
                     print(updater.iteration, train_iter.epoch,
-                          sum_loss / train_count, sum_accuracy / train_count)
+                          sum_loss / train_count, sum_accuracy / train_count,
+                          flush = True)
                 sum_loss = 0
                 sum_accuracy = 0
 
                 checkpointer.save(updater, updater.iteration)
 
         if display_log:
-            print(self.communicator.rank, checkpointer.get_stats())
+            print(communicator.rank, checkpointer.get_stats(), flush=True)
 
         # Allocate totally different set of training tools to avoid leakage
         data_2 = self.setup_mnist_trainer()
         updater2, optimizer2, train_iter2, test_iter2, model2 = data_2
         checkpointer2 = create_multi_node_checkpointer(
-            name=__name__, comm=self.communicator, path=path)
+            name=__name__, comm=communicator, path=path)
         checkpointer2.maybe_load(updater2, optimizer2)
 
         # Check data properly resumed
@@ -161,14 +166,15 @@ class TestCheckpoint(unittest.TestCase):
 
             if train_iter2.is_new_epoch:
                 print(updater2.iteration, train_iter2.epoch,
-                      sum_loss / train_count, sum_accuracy / train_count)
+                      sum_loss / train_count, sum_accuracy / train_count,
+                      flush=True)
                 sum_loss = 0
                 sum_accuracy = 0
 
                 checkpointer2.save(updater2, updater2.iteration)
 
         if display_log:
-            print(self.communicator.rank, checkpointer2.get_stats())
+            print(communicator.rank, checkpointer2.get_stats(), flush=True)
         checkpointer2.finalize()
         checkpointer.finalize()
 
@@ -186,7 +192,7 @@ class TestCheckpoint(unittest.TestCase):
 
         if display_log:
             print('test mean  loss: {}, accuracy: {}'.format(
-                sum_loss / test_count, sum_accuracy / test_count))
+                sum_loss / test_count, sum_accuracy / test_count), flush=True)
 
         self.assertGreaterEqual(sum_accuracy / test_count, 0.95)
         os.removedirs(path)
